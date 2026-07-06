@@ -63,6 +63,39 @@ class AuthService {
     }
   }
 
+  Future<void> deleteAccount() async {
+    try {
+      final User? user = _auth.currentUser;
+
+      if (user == null) {
+        throw FirebaseAuthException(
+          code: 'no-current-user',
+          message: 'No signed-in user found.',
+        );
+      }
+
+      await user.delete();
+    } on FirebaseAuthException {
+      rethrow;
+    } catch (_) {
+      throw Exception('An unexpected error occurred. Please try again.');
+    }
+  }
+
+  String getErrorMessage(Object error) {
+    if (error is FirebaseAuthException) {
+      return _getAuthErrorMessage(error.code);
+    }
+
+    final String message = error.toString();
+
+    if (message.startsWith('Exception: ')) {
+      return message.replaceFirst('Exception: ', '');
+    }
+
+    return 'An unexpected error occurred. Please try again.';
+  }
+
   String _getAuthErrorMessage(String code) {
     switch (code) {
       case 'invalid-email':
@@ -83,6 +116,10 @@ class AuthService {
         return 'Email/password sign-in is not enabled.';
       case 'network-request-failed':
         return 'Network error. Please check your internet connection.';
+      case 'requires-recent-login':
+        return 'For security reasons, please sign in again and try deleting your account.';
+      case 'no-current-user':
+        return 'No signed-in user found.';
       default:
         return 'Authentication failed. Please try again.';
     }
