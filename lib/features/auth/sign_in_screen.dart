@@ -1,8 +1,91 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-class SignInScreen extends StatelessWidget {
+import '../../services/auth_service.dart';
+import '../device/connect_device_screen.dart';
+import 'sign_up_screen.dart';
+
+class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
+
+  @override
+  State<SignInScreen> createState() => _SignInScreenState();
+}
+
+class _SignInScreenState extends State<SignInScreen> {
+  final AuthService _authService = AuthService();
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  bool _isLoading = false;
+  bool _isPasswordHidden = true;
+
+  bool get _emailLooksValid {
+    final email = _emailController.text.trim();
+    return email.contains('@') && email.contains('.');
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignIn() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showMessage('Please fill in all fields.');
+      return;
+    }
+
+    if (!_emailLooksValid) {
+      _showMessage('Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      _showMessage('Password must be at least 6 characters.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signIn(email: email, password: password);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ConnectDeviceScreen()),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      final message = error.toString().replaceFirst('Exception: ', '');
+      _showMessage(message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +132,14 @@ class SignInScreen extends StatelessWidget {
                 left: x(30),
                 width: x(318),
                 height: y(46),
-                child: const _EmailLine(),
+                child: _EmailLine(
+                  controller: _emailController,
+                  enabled: !_isLoading,
+                  showCheck: _emailLooksValid,
+                  onChanged: (_) {
+                    setState(() {});
+                  },
+                ),
               ),
 
               Positioned(
@@ -57,7 +147,21 @@ class SignInScreen extends StatelessWidget {
                 left: x(30),
                 width: x(318),
                 height: y(46),
-                child: const _PasswordLine(),
+                child: _PasswordLine(
+                  controller: _passwordController,
+                  enabled: !_isLoading,
+                  obscureText: _isPasswordHidden,
+                  onSubmitted: (_) {
+                    if (!_isLoading) {
+                      _handleSignIn();
+                    }
+                  },
+                  onToggleVisibility: () {
+                    setState(() {
+                      _isPasswordHidden = !_isPasswordHidden;
+                    });
+                  },
+                ),
               ),
 
               Positioned(
@@ -65,35 +169,49 @@ class SignInScreen extends StatelessWidget {
                 left: x(83),
                 width: x(210),
                 height: y(44),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(76, 175, 80, 1),
-                    borderRadius: BorderRadius.circular(x(23)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromRGBO(121, 121, 121, 0.5),
-                        offset: Offset(0, 2),
-                        blurRadius: 12,
-                        spreadRadius: 0,
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
+                child: MouseRegion(
+                  cursor: _isLoading
+                      ? SystemMouseCursors.basic
+                      : SystemMouseCursors.click,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: _isLoading
+                          ? const Color.fromRGBO(150, 150, 150, 1)
+                          : const Color.fromRGBO(76, 175, 80, 1),
                       borderRadius: BorderRadius.circular(x(23)),
-                      onTap: () {
-                        debugPrint('Sign In tapped');
-                      },
-                      child: Center(
-                        child: Text(
-                          'Sign In',
-                          style: GoogleFonts.montserrat(
-                            fontSize: x(16),
-                            fontWeight: FontWeight.w700,
-                            height: 1.0,
-                            color: Colors.white,
-                          ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromRGBO(121, 121, 121, 0.5),
+                          offset: Offset(0, 2),
+                          blurRadius: 12,
+                          spreadRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(x(23)),
+                        onTap: _isLoading ? null : _handleSignIn,
+                        child: Center(
+                          child: _isLoading
+                              ? SizedBox(
+                                  width: x(18),
+                                  height: x(18),
+                                  child: const CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  'Sign In',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: x(16),
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.0,
+                                    color: Colors.white,
+                                  ),
+                                ),
                         ),
                       ),
                     ),
@@ -106,23 +224,42 @@ class SignInScreen extends StatelessWidget {
                 left: x(60),
                 width: x(256),
                 height: y(20),
-                child: RichText(
-                  textAlign: TextAlign.center,
-                  text: TextSpan(
-                    style: GoogleFonts.montserrat(
-                      fontSize: x(16),
-                      fontWeight: FontWeight.w400,
-                      height: 1.0,
-                      letterSpacing: 0.04,
-                      color: const Color.fromRGBO(37, 65, 96, 1),
-                    ),
-                    children: const [
-                      TextSpan(text: 'Don’t have an account? '),
-                      TextSpan(
-                        text: 'Sign up',
-                        style: TextStyle(color: Color.fromRGBO(76, 175, 80, 1)),
+                child: MouseRegion(
+                  cursor: _isLoading
+                      ? SystemMouseCursors.basic
+                      : SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: _isLoading
+                        ? null
+                        : () {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SignUpScreen(),
+                              ),
+                            );
+                          },
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: GoogleFonts.montserrat(
+                          fontSize: x(16),
+                          fontWeight: FontWeight.w400,
+                          height: 1.0,
+                          letterSpacing: 0.04,
+                          color: const Color.fromRGBO(37, 65, 96, 1),
+                        ),
+                        children: const [
+                          TextSpan(text: 'Don’t have an account? '),
+                          TextSpan(
+                            text: 'Sign up',
+                            style: TextStyle(
+                              color: Color.fromRGBO(76, 175, 80, 1),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -151,7 +288,17 @@ class SignInScreen extends StatelessWidget {
 }
 
 class _EmailLine extends StatelessWidget {
-  const _EmailLine();
+  const _EmailLine({
+    required this.controller,
+    required this.enabled,
+    required this.showCheck,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final bool showCheck;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -171,17 +318,45 @@ class _EmailLine extends StatelessWidget {
         ),
 
         Positioned(
-          top: 19,
+          top: 13,
           left: 0,
-          child: Text(
-            'User@gmail.com',
+          right: showCheck ? 25 : 0,
+          height: 32,
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            onChanged: onChanged,
             style: GoogleFonts.montserrat(
               fontSize: 14,
               fontWeight: FontWeight.w400,
               color: const Color.fromRGBO(37, 65, 96, 1),
             ),
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              hintText: 'User@gmail.com',
+              hintStyle: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color.fromRGBO(37, 65, 96, 0.65),
+              ),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
         ),
+
+        if (showCheck)
+          const Positioned(
+            top: 17,
+            right: 0,
+            child: Icon(
+              Icons.check,
+              size: 18,
+              color: Color.fromRGBO(76, 175, 80, 1),
+            ),
+          ),
 
         Positioned(
           left: 0,
@@ -198,7 +373,19 @@ class _EmailLine extends StatelessWidget {
 }
 
 class _PasswordLine extends StatelessWidget {
-  const _PasswordLine();
+  const _PasswordLine({
+    required this.controller,
+    required this.enabled,
+    required this.obscureText,
+    required this.onSubmitted,
+    required this.onToggleVisibility,
+  });
+
+  final TextEditingController controller;
+  final bool enabled;
+  final bool obscureText;
+  final ValueChanged<String> onSubmitted;
+  final VoidCallback onToggleVisibility;
 
   @override
   Widget build(BuildContext context) {
@@ -218,31 +405,48 @@ class _PasswordLine extends StatelessWidget {
         ),
 
         Positioned(
-          top: 24,
+          top: 13,
           left: 0,
-          child: Row(
-            children: List.generate(
-              6,
-              (index) => Container(
-                margin: const EdgeInsets.only(right: 8),
-                width: 10,
-                height: 10,
-                decoration: const BoxDecoration(
-                  color: Color.fromRGBO(41, 53, 68, 1),
-                  shape: BoxShape.circle,
-                ),
+          right: 30,
+          height: 32,
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            obscureText: obscureText,
+            textInputAction: TextInputAction.done,
+            onSubmitted: onSubmitted,
+            style: GoogleFonts.montserrat(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: const Color.fromRGBO(37, 65, 96, 1),
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              hintText: 'Password',
+              hintStyle: GoogleFonts.montserrat(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: const Color.fromRGBO(37, 65, 96, 0.65),
               ),
+              contentPadding: EdgeInsets.zero,
             ),
           ),
         ),
 
         Positioned(
-          top: 21,
+          top: 17,
           right: 0,
-          child: Icon(
-            Icons.visibility_off,
-            size: 17,
-            color: const Color.fromRGBO(139, 146, 154, 1),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: enabled ? onToggleVisibility : null,
+              child: Icon(
+                obscureText ? Icons.visibility_off : Icons.visibility,
+                size: 17,
+                color: const Color.fromRGBO(139, 146, 154, 1),
+              ),
+            ),
           ),
         ),
 
