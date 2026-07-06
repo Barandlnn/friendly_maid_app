@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../inventory/inventory_screen.dart';
+import '../menu/menu_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -270,14 +271,14 @@ class _AddAndScanButtons extends StatelessWidget {
       width: 330,
       height: 40,
       child: Row(
-        children: [
+        children: const [
           Expanded(
             child: _OutlineActionButton(
               icon: Icons.add_rounded,
               label: 'Add Item',
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: _OutlineActionButton(
               icon: Icons.camera_alt_rounded,
@@ -447,6 +448,7 @@ class _BottomNavBar extends StatelessWidget {
               label: 'Home',
               selected: true,
             ),
+
             MouseRegion(
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
@@ -454,9 +456,7 @@ class _BottomNavBar extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const InventoryScreen(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const InventoryScreen()),
                   );
                 },
                 child: const _NavItem(
@@ -465,12 +465,26 @@ class _BottomNavBar extends StatelessWidget {
                 ),
               ),
             ),
+
             const _NavItem(
               icon: Icons.notifications_rounded,
               label: 'Alerts',
               badge: '3',
             ),
-            const _NavItem(icon: Icons.menu_rounded, label: 'Menu'),
+
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MenuScreen()),
+                  );
+                },
+                child: const _NavItem(icon: Icons.menu_rounded, label: 'Menu'),
+              ),
+            ),
           ],
         ),
       ),
